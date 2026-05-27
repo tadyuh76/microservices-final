@@ -1,0 +1,162 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: peakpick
+      POSTGRES_USER: peakpick
+      POSTGRES_PASSWORD: peakpick
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U peakpick -d peakpick"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api-gateway:
+    build: .
+    command: uvicorn services.api_gateway.main:app --host 0.0.0.0 --port 8000
+    environment:
+      SERVICE_NAME: api-gateway
+      EVENT_BUS: rabbitmq
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      DATABASE_URL: postgresql://peakpick:peakpick@postgres:5432/peakpick
+      CATALOG_SERVICE_URL: http://catalog-service:8001
+      ORDER_SERVICE_URL: http://order-service:8002
+      SLOT_SERVICE_URL: http://slot-service:8003
+      STORE_OPS_SERVICE_URL: http://store-ops-service:8004
+      INVENTORY_SERVICE_URL: http://inventory-service:8005
+      NOTIFICATION_SERVICE_URL: http://notification-service:8006
+      ANALYTICS_SERVICE_URL: http://analytics-service:8007
+    ports:
+      - "8000:8000"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  catalog-service:
+    build: .
+    command: uvicorn services.catalog_service.main:app --host 0.0.0.0 --port 8001
+    environment:
+      SERVICE_NAME: catalog-service
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  order-service:
+    build: .
+    command: uvicorn services.order_service.main:app --host 0.0.0.0 --port 8002
+    environment:
+      SERVICE_NAME: order-service
+      EVENT_BUS: rabbitmq
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      DATABASE_URL: postgresql://peakpick:peakpick@postgres:5432/peakpick
+    ports:
+      - "8002:8002"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  slot-service:
+    build: .
+    command: uvicorn services.slot_service.main:app --host 0.0.0.0 --port 8003
+    environment:
+      SERVICE_NAME: slot-service
+      EVENT_BUS: rabbitmq
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      DATABASE_URL: postgresql://peakpick:peakpick@postgres:5432/peakpick
+    ports:
+      - "8003:8003"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  store-ops-service:
+    build: .
+    command: uvicorn services.store_ops_service.main:app --host 0.0.0.0 --port 8004
+    environment:
+      SERVICE_NAME: store-ops-service
+      EVENT_BUS: rabbitmq
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      DATABASE_URL: postgresql://peakpick:peakpick@postgres:5432/peakpick
+    ports:
+      - "8004:8004"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  inventory-service:
+    build: .
+    command: uvicorn services.inventory_service.main:app --host 0.0.0.0 --port 8005
+    environment:
+      SERVICE_NAME: inventory-service
+      EVENT_BUS: rabbitmq
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      DATABASE_URL: postgresql://peakpick:peakpick@postgres:5432/peakpick
+    ports:
+      - "8005:8005"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  notification-service:
+    build: .
+    command: uvicorn services.notification_service.main:app --host 0.0.0.0 --port 8006
+    environment:
+      SERVICE_NAME: notification-service
+      EVENT_BUS: rabbitmq
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      DATABASE_URL: postgresql://peakpick:peakpick@postgres:5432/peakpick
+    ports:
+      - "8006:8006"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  analytics-service:
+    build: .
+    command: uvicorn services.analytics_service.main:app --host 0.0.0.0 --port 8007
+    environment:
+      SERVICE_NAME: analytics-service
+      EVENT_BUS: rabbitmq
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      DATABASE_URL: postgresql://peakpick:peakpick@postgres:5432/peakpick
+    ports:
+      - "8007:8007"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+
