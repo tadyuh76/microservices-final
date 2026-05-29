@@ -166,6 +166,7 @@ This repository now includes Huy's platform and eventing foundation:
 FastAPI services
 RabbitMQ topic exchange
 PostgreSQL event_log table
+Order, order item, pickup window, slot, and reservation tables
 Shared event envelope and event types
 API Gateway route skeleton
 Health endpoints
@@ -216,6 +217,8 @@ Quick demo path through the API Gateway:
 
 ```bash
 curl http://localhost:8000/catalog/products
+curl http://localhost:8000/slots/pickup-windows
+curl http://localhost:8000/slots/slots
 
 curl -X POST http://localhost:8000/orders/checkout \
   -H "Content-Type: application/json" \
