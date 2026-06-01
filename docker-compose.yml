@@ -50,6 +50,20 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+      catalog-service:
+        condition: service_started
+      order-service:
+        condition: service_started
+      slot-service:
+        condition: service_started
+      store-ops-service:
+        condition: service_started
+      inventory-service:
+        condition: service_started
+      notification-service:
+        condition: service_started
+      analytics-service:
+        condition: service_started
 
   frontend:
     build:
@@ -59,7 +73,8 @@ services:
     ports:
       - "5173:5173"
     depends_on:
-      - api-gateway
+      api-gateway:
+        condition: service_started
 
   catalog-service:
     build: .
