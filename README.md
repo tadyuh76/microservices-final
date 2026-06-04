@@ -312,3 +312,15 @@ Use a generated pickup token instead of real scanner integration.
 ```
 
 PeakPick should be presented as a practical course prototype, not a production-ready system. The strongest point of the project is showing how service boundaries and events help coordinate orders, slots, inventory, staff operations, notifications, and analytics during peak-hour pickup.
+
+## Server Deployment
+
+Production-style deployment uses the dedicated compose file:
+
+```bash
+PUBLIC_API_BASE_URL=http://SERVER_IP:8000 \
+CORS_ORIGINS=http://SERVER_IP:5173 \
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+For the `cop-fe` server, GitHub auto-sync is handled by `scripts/deploy.sh` plus the systemd timer templates in `deployment/`. The timer pulls `main` from GitHub and redeploys only when the commit changes.

@@ -1,0 +1,12 @@
+[Unit]
+Description=Sync and deploy PeakPick from GitHub
+Wants=network-online.target docker.service
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/peakpick
+Environment=REPO_DIR=/opt/peakpick
+Environment=BRANCH=main
+ExecStart=/opt/peakpick/scripts/deploy.sh
+

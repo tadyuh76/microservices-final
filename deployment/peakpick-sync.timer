@@ -1,0 +1,12 @@
+[Unit]
+Description=Run PeakPick GitHub sync every minute
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+AccuracySec=15s
+Unit=peakpick-sync.service
+
+[Install]
+WantedBy=timers.target
+
