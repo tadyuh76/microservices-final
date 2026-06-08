@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from fastapi import FastAPI, HTTPException, Query
 
+from shared.logging import configure_logging, install_api_logging
+
 
 PRODUCTS = [
     {
@@ -50,12 +52,14 @@ PRODUCTS = [
         "display_order": 1,
     },
 ]
+logger = configure_logging("catalog-service")
 
 app = FastAPI(
     title="PeakPick Catalog Service",
     version="0.1.0",
     description="Product browsing for the PeakPick demo.",
 )
+install_api_logging(app, logger, "catalog-service")
 
 
 @app.get("/health")
@@ -82,4 +86,3 @@ async def get_product(sku: str) -> dict[str, object]:
         if product["sku"] == sku:
             return product
     raise HTTPException(status_code=404, detail="Product not found")
-

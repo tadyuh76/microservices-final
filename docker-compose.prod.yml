@@ -29,8 +29,10 @@ services:
       SERVICE_NAME: api-gateway
       CORS_ORIGINS: ${CORS_ORIGINS}
       EVENT_BUS: rabbitmq
+      PEAKPICK_AUTH_SECRET: ${PEAKPICK_AUTH_SECRET}
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       DATABASE_URL: postgresql://peakpick:peakpick@postgres:5432/peakpick
+      IDENTITY_SERVICE_URL: http://identity-service:8008
       CATALOG_SERVICE_URL: http://catalog-service:8001
       ORDER_SERVICE_URL: http://order-service:8002
       SLOT_SERVICE_URL: http://slot-service:8003
@@ -45,6 +47,8 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+      identity-service:
+        condition: service_started
 
   frontend:
     build:
@@ -61,6 +65,17 @@ services:
     command: uvicorn services.catalog_service.main:app --host 0.0.0.0 --port 8001
     environment:
       SERVICE_NAME: catalog-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  identity-service:
+    build: .
+    command: uvicorn services.identity_service.main:app --host 0.0.0.0 --port 8008
+    environment:
+      SERVICE_NAME: identity-service
+      PEAKPICK_AUTH_SECRET: ${PEAKPICK_AUTH_SECRET}
+      DATABASE_URL: postgresql://peakpick:peakpick@postgres:5432/peakpick
     depends_on:
       postgres:
         condition: service_healthy
@@ -151,4 +166,3 @@ services:
 
 volumes:
   postgres_data:
-
