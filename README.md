@@ -166,11 +166,12 @@ This repository now includes Huy's platform and eventing foundation:
 FastAPI services
 RabbitMQ topic exchange
 PostgreSQL event_log table
-Order, order item, pickup window, slot, and reservation tables
+Tenant-aware store, identity, order, pickup window, slot, and reservation tables
 Shared event envelope and event types
 API Gateway route skeleton
+Identity Service with admin and store-manager demo users
 Health endpoints
-Structured JSON logs
+Structured JSON logs for API requests, responses, and business events
 Docker Compose
 GitHub Actions test workflow
 Integration tests for the event flow
@@ -188,6 +189,7 @@ Service ports:
 | Inventory Service | http://localhost:8005 |
 | Notification Service | http://localhost:8006 |
 | Analytics Service | http://localhost:8007 |
+| Identity Service | http://localhost:8008 |
 | Frontend | http://localhost:5173 |
 | RabbitMQ UI | http://localhost:15672 |
 
@@ -220,18 +222,29 @@ curl http://localhost:8000/catalog/products
 curl http://localhost:8000/slots/pickup-windows
 curl http://localhost:8000/slots/slots
 
+TOKEN=$(
+  curl -s -X POST http://localhost:8000/identity/auth/login \
+    -H "Content-Type: application/json" \
+    -d '{"username":"manager.ueh@peakpick.local","password":"manager123"}' \
+    | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])'
+)
+
 curl -X POST http://localhost:8000/orders/checkout \
   -H "Content-Type: application/json" \
-  -d '{"customer_name":"Huy","pickup_window":"12:00-12:15","items":[{"sku":"coffee","quantity":2}]}'
+  -d '{"store_id":"store-ueh","customer_name":"Huy","pickup_window":"12:00-12:15","items":[{"sku":"coffee","quantity":2}]}'
 
 curl http://localhost:8000/store/board
-curl -X POST http://localhost:8000/store/orders/{order_id}/preparing
-curl -X POST http://localhost:8000/store/orders/{order_id}/ready
+curl -X POST http://localhost:8000/store/orders/{order_id}/preparing \
+  -H "Authorization: Bearer $TOKEN"
+curl -X POST http://localhost:8000/store/orders/{order_id}/ready \
+  -H "Authorization: Bearer $TOKEN"
 curl -X POST http://localhost:8000/store/orders/{order_id}/pickup \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"token":"PK-XXXXXX"}'
 
-curl http://localhost:8000/analytics/events
+curl http://localhost:8000/analytics/events \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 RabbitMQ carries the main events:
@@ -323,6 +336,7 @@ Production-style deployment uses the dedicated compose file:
 ```bash
 PUBLIC_API_BASE_URL=http://SERVER_IP:8000 \
 CORS_ORIGINS=http://SERVER_IP:5173 \
+PEAKPICK_AUTH_SECRET=replace-with-a-long-random-secret \
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 

@@ -5,7 +5,7 @@ REPO_DIR="${REPO_DIR:-/opt/peakpick}"
 BRANCH="${BRANCH:-main}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
 ENV_FILE="${ENV_FILE:-.env.production}"
-EXPECTED_SERVICES="${EXPECTED_SERVICES:-11}"
+EXPECTED_SERVICES="${EXPECTED_SERVICES:-12}"
 FORCE_DEPLOY="${FORCE_DEPLOY:-0}"
 
 cd "$REPO_DIR"
@@ -39,4 +39,3 @@ done
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" ps
 echo "PeakPick deployment did not pass health checks" >&2
 exit 1
-
