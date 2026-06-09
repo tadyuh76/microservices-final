@@ -96,7 +96,7 @@ Extra states such as `Cancelled`, `Expired`, and `Delayed` can be added after th
 
 | Layer | Planned Technology |
 |---|---|
-| Frontend | Vite + TypeScript |
+| Frontend | SolidJS + Vite + TypeScript |
 | Backend | FastAPI services |
 | Database | PostgreSQL |
 | Message Broker | RabbitMQ |
@@ -187,6 +187,7 @@ Service ports:
 | Inventory Service | http://localhost:8005 |
 | Notification Service | http://localhost:8006 |
 | Analytics Service | http://localhost:8007 |
+| Frontend | http://localhost:5173 |
 | RabbitMQ UI | http://localhost:15672 |
 
 Each FastAPI service exposes Swagger at `/docs` and a health check at `/health`.
@@ -197,8 +198,19 @@ Run locally:
 uv venv
 uv pip install -r requirements.txt
 uv run pytest -q
+cd frontend && npm install && npm run build && cd ..
 docker compose up --build
 ```
+
+Frontend foundation:
+
+```text
+frontend/src/App.tsx
+frontend/src/services/api.ts
+frontend/src/services/types.ts
+```
+
+The UI calls the API Gateway through `VITE_API_BASE_URL` and gives teammates a starting point for customer checkout, staff board actions, notifications, and analytics.
 
 Quick demo path through the API Gateway:
 

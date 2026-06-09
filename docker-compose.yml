@@ -32,6 +32,7 @@ services:
     command: uvicorn services.api_gateway.main:app --host 0.0.0.0 --port 8000
     environment:
       SERVICE_NAME: api-gateway
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
       EVENT_BUS: rabbitmq
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       DATABASE_URL: postgresql://peakpick:peakpick@postgres:5432/peakpick
@@ -49,6 +50,16 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api-gateway
 
   catalog-service:
     build: .
@@ -159,4 +170,3 @@ services:
 
 volumes:
   postgres_data:
-
