@@ -1,201 +1,100 @@
 # PeakPick
 
-PeakPick is a service-based, event-driven pickup slot system for convenience stores during peak hours.
+PeakPick là hệ thống đặt hàng trước và nhận hàng theo ô pickup cho cửa hàng tiện lợi trong giờ cao điểm. Dự án hiện được tổ chức theo **Microservices Architecture + Event-Driven Architecture**.
 
-The idea is simple: instead of waiting in a cashier line, a customer orders small items before arriving, chooses a pickup window, pays through a mock checkout flow, and receives an assigned pickup slot. Store staff prepares the cart, places it in the assigned slot, then verifies the customer's pickup token or QR code.
-
-## Problem
-
-Convenience stores can become crowded during short peak periods such as class breaks, lunch time, or commute hours. Customers who only want one drink or snack still wait behind everyone else because all customers follow the same flow:
+Ứng dụng đang chạy tại:
 
 ```text
-Pick items -> Wait in line -> Cashier scans items -> Pay -> Wait for confirmation -> Leave
+https://peakpick-103-90-225-235.sslip.io
 ```
 
-PeakPick changes the flow to:
+## Ý tưởng
+
+Thay vì khách phải xếp hàng, quét từng món, thanh toán rồi chờ xác nhận tại quầy, PeakPick đổi luồng thành:
 
 ```text
-Order before arrival -> Choose pickup window -> Store prepares cart -> Assigned pickup slot -> Verify pickup
+Đặt món trước -> Chọn khung giờ nhận -> Hệ thống gán ô pickup -> Nhân viên chuẩn bị -> Khách xác nhận mã nhận hàng
 ```
 
-The main domain concept is the pickup slot. A pickup slot is a physical or logical store location reserved for one paid order during a specific pickup window.
+Điểm chính của bài là **pickup slot**: một ô nhận hàng vật lý hoặc logic được giữ cho một đơn đã thanh toán trong một khung giờ cụ thể.
 
-## Architecture Plan
+## Kiến Trúc
 
-PeakPick uses:
+PeakPick dùng microservices vì các nghiệp vụ có ranh giới rõ:
 
-```text
-Service-Based Architecture + Event-Driven Architecture
-```
-
-Service-based architecture is selected because the system has clear business domains, but a pure microservices approach would be too complex for a small course project. Event-driven architecture is used to coordinate important lifecycle changes between services without forcing the Order Service to directly call every other service.
-
-Main services:
-
-| Service | Responsibility |
+| Microservice | Trách nhiệm |
 |---|---|
-| API Gateway | Single entry point for frontend clients |
-| Catalog Service | Products, categories, prices, and availability |
-| Order Service | Cart, checkout, mock payment, and order lifecycle |
-| Slot Service | Pickup windows, slot capacity, and slot assignment |
-| Store Operations Service | Staff board, preparation status, and pickup verification |
-| Inventory Service | Stock reservation, deduction, and shortage checks |
-| Notification Service | Simulated ready, delay, and pickup notifications |
-| Analytics Service | Event counters, slot utilization, and peak-hour demand |
+| API Gateway | Cổng REST duy nhất cho frontend, kiểm tra token và phân quyền cơ bản |
+| Identity Service | Tài khoản demo, vai trò, token đăng nhập |
+| Catalog Service | Danh mục sản phẩm, giá, trạng thái bán |
+| Order Service | Giỏ hàng, checkout mock, trạng thái đơn hàng |
+| Slot Service | Khung giờ nhận, sức chứa, gán và giải phóng ô pickup |
+| Store Operations Service | Bảng xử lý của nhân viên, chuẩn bị đơn, xác nhận pickup |
+| Inventory Service | Giữ hàng, trừ tồn, phát hiện thiếu hàng |
+| Notification Service | Mô phỏng thông báo đơn sẵn sàng hoặc thiếu hàng |
+| Analytics Service | Đếm sự kiện, thống kê vận hành |
+| Frontend | Giao diện SolidJS cho khách và nhân viên |
 
-## Main Demo Flow
-
-The MVP focuses on one complete vertical journey:
+Microservices trong bản tách repo có:
 
 ```text
-1. Customer browses items.
-2. Customer creates cart and completes mock checkout.
-3. Order Service publishes OrderPaid.
-4. Slot Service assigns a pickup window and slot.
-5. Store Operations dashboard shows the assigned slot.
-6. Staff marks the order as Preparing and Ready.
-7. Customer receives a pickup token or QR code.
-8. Staff verifies pickup.
-9. Order becomes PickedUp.
-10. Slot becomes Available again.
+- Repo riêng cho từng service
+- Dockerfile riêng
+- PostgreSQL database riêng cho từng service có dữ liệu
+- RabbitMQ dùng chung để truyền domain events
+- API Gateway làm điểm vào duy nhất cho client
 ```
 
-## Core Events
+## Event-Driven Flow
+
+Luồng demo chính đi qua RabbitMQ:
 
 ```text
-CartCreated
 OrderPaid
-PickupSlotReserved
-InventoryReserved
-InventoryShortageDetected
-OrderPreparing
-OrderReady
-OrderPickedUp
-OrderExpired
-NotificationRequested
-AnalyticsUpdated
+-> PickupSlotReserved
+-> InventoryReserved
+-> OrderPreparing
+-> OrderReady
+-> NotificationRequested
+-> OrderPickedUp
 ```
 
-## Lifecycle
+Các service không gọi trực tiếp tất cả service khác. Ví dụ, sau checkout, Order Service chỉ publish `OrderPaid`; Slot, Inventory, Store Operations và Analytics tự consume event phù hợp. Cách này giảm coupling và thể hiện rõ eventual consistency.
 
-Order lifecycle:
+## Tech Stack
 
-```text
-CartCreated -> PaymentPending -> Paid -> SlotAssigned -> Preparing -> ReadyForPickup -> Completed
-```
-
-Slot lifecycle:
-
-```text
-Available -> Reserved -> Preparing -> Ready -> PickedUp -> Available
-```
-
-Extra states such as `Cancelled`, `Expired`, and `Delayed` can be added after the main flow works.
-
-## Technology Plan
-
-| Layer | Planned Technology |
+| Lớp | Công nghệ |
 |---|---|
-| Frontend | SolidJS + Vite + TypeScript |
-| Backend | FastAPI services |
-| Database | PostgreSQL |
-| Message Broker | RabbitMQ |
-| API Docs | Swagger / OpenAPI |
-| Deployment | Docker Compose |
-| CI/CD | GitHub Actions |
-| Monitoring | Health endpoints and structured logs |
+| Frontend | SolidJS, Vite, TypeScript |
+| Backend | FastAPI, Python |
+| Database | PostgreSQL, database riêng theo service |
+| Message broker | RabbitMQ |
+| API docs | Swagger / OpenAPI tại `/docs` của từng service |
+| Container | Docker, Docker Compose |
+| Reverse proxy | Nginx trên VPS, Caddy là option local/free-domain |
+| Test | Pytest, frontend build |
 
-## Data Consistency Strategy
+## Repo Tách Microservice
 
-Use stronger consistency for decisions that must be correct:
-
-```text
-Payment status
-Slot reservation
-Inventory reservation
-```
-
-Use eventual consistency for supporting workflows where a short delay is acceptable:
+Các repo chính đã được tách và push lên GitHub:
 
 ```text
-Notifications
-Analytics
-Dashboard summaries
-Low-stock alerts
+peakpick-api-gateway
+peakpick-identity-service
+peakpick-catalog-service
+peakpick-order-service
+peakpick-slot-service
+peakpick-store-ops-service
+peakpick-inventory-service
+peakpick-notification-service
+peakpick-analytics-service
+peakpick-frontend
+peakpick-deployment
 ```
 
-This is the main architecture trade-off: stronger consistency protects the critical order and slot flow, while event-driven updates reduce coupling for supporting services.
+Repo `peakpick-deployment` là nơi chạy toàn bộ hệ thống bằng Docker Compose. Repo hiện tại giữ bản tổng hợp ban đầu, yêu cầu môn học và tài liệu dự án.
 
-## Implementation Scope
-
-Required MVP:
-
-```text
-Customer ordering page
-Catalog browsing
-Cart and mock checkout
-Pickup time selection
-Automatic slot assignment
-Pickup token or QR code
-Staff dashboard
-Slot status updates
-Inventory deduction
-Notification simulation
-Analytics event counter
-RabbitMQ event flow
-Docker Compose setup
-Swagger API documentation
-```
-
-Stretch features, only if the MVP is already stable:
-
-```text
-Realtime staff board
-Order expiration
-Low-stock alerts
-Peak-hour demand forecasting
-Cloud deployment
-Prometheus/Grafana monitoring
-```
-
-## Implemented Prototype
-
-This repository now includes Huy's platform and eventing foundation:
-
-```text
-FastAPI services
-RabbitMQ topic exchange
-PostgreSQL event_log table
-Tenant-aware store, identity, order, pickup window, slot, and reservation tables
-Shared event envelope and event types
-API Gateway route skeleton
-Identity Service with admin and store-manager demo users
-Health endpoints
-Structured JSON logs for API requests, responses, and business events
-Docker Compose
-GitHub Actions test workflow
-Integration tests for the event flow
-```
-
-Service ports:
-
-| Service | URL |
-|---|---|
-| API Gateway | http://localhost:8000 |
-| Catalog Service | http://localhost:8001 |
-| Order Service | http://localhost:8002 |
-| Slot Service | http://localhost:8003 |
-| Store Operations Service | http://localhost:8004 |
-| Inventory Service | http://localhost:8005 |
-| Notification Service | http://localhost:8006 |
-| Analytics Service | http://localhost:8007 |
-| Identity Service | http://localhost:8008 |
-| Frontend | http://localhost:5173 |
-| RabbitMQ UI | http://localhost:15672 |
-
-Each FastAPI service exposes Swagger at `/docs` and a health check at `/health`.
-
-Run locally:
+## Chạy Local Từ Repo Tổng Hợp
 
 ```bash
 uv venv
@@ -205,23 +104,54 @@ cd frontend && npm install && npm run build && cd ..
 docker compose up --build
 ```
 
-Frontend foundation:
+Các port local:
 
-```text
-frontend/src/App.tsx
-frontend/src/services/api.ts
-frontend/src/services/types.ts
-```
+| Thành phần | URL |
+|---|---|
+| Frontend | http://localhost:5173 |
+| API Gateway | http://localhost:8000 |
+| RabbitMQ UI | http://localhost:15672 |
+| Identity Service | http://localhost:8008/docs |
+| Catalog Service | http://localhost:8001/docs |
+| Order Service | http://localhost:8002/docs |
+| Slot Service | http://localhost:8003/docs |
+| Store Operations Service | http://localhost:8004/docs |
+| Inventory Service | http://localhost:8005/docs |
+| Notification Service | http://localhost:8006/docs |
+| Analytics Service | http://localhost:8007/docs |
 
-The UI calls the API Gateway through `VITE_API_BASE_URL` and gives teammates a starting point for customer checkout, staff board actions, notifications, and analytics.
+## Chạy Bản Microservice Tách Repo
 
-Quick demo path through the API Gateway:
+Đặt các repo `peakpick-*` cùng cấp thư mục, sau đó:
 
 ```bash
-curl http://localhost:8000/catalog/products
-curl http://localhost:8000/slots/pickup-windows
-curl http://localhost:8000/slots/slots
+cd peakpick-deployment
+docker compose up --build
+```
 
+Khi deploy public:
+
+```bash
+PEAKPICK_AUTH_SECRET=replace-with-long-secret
+PUBLIC_DOMAIN=peakpick-103-90-225-235.sslip.io
+PUBLIC_API_BASE_URL=https://peakpick-103-90-225-235.sslip.io
+CORS_ORIGINS=https://peakpick-103-90-225-235.sslip.io
+docker compose --env-file .env.production up -d --build
+```
+
+Trên server hiện tại, Nginx reverse proxy public HTTPS vào `127.0.0.1:5173` và `127.0.0.1:8000`. Các service nội bộ chỉ bind localhost.
+
+## Tài Khoản Demo
+
+```text
+admin@peakpick.local / admin123
+manager.ueh@peakpick.local / manager123
+manager.d1@peakpick.local / manager123
+```
+
+## Demo API Nhanh
+
+```bash
 TOKEN=$(
   curl -s -X POST http://localhost:8000/identity/auth/login \
     -H "Content-Type: application/json" \
@@ -229,115 +159,25 @@ TOKEN=$(
     | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])'
 )
 
+curl http://localhost:8000/catalog/products
+
 curl -X POST http://localhost:8000/orders/checkout \
   -H "Content-Type: application/json" \
   -d '{"store_id":"store-ueh","customer_name":"Huy","pickup_window":"12:00-12:15","items":[{"sku":"coffee","quantity":2}]}'
 
-curl http://localhost:8000/store/board
-curl -X POST http://localhost:8000/store/orders/{order_id}/preparing \
-  -H "Authorization: Bearer $TOKEN"
-curl -X POST http://localhost:8000/store/orders/{order_id}/ready \
-  -H "Authorization: Bearer $TOKEN"
-curl -X POST http://localhost:8000/store/orders/{order_id}/pickup \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"token":"PK-XXXXXX"}'
-
-curl http://localhost:8000/analytics/events \
+curl http://localhost:8000/store/board \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-RabbitMQ carries the main events:
+## Phạm Vi Báo Cáo
+
+Bài nên trình bày PeakPick là một prototype microservices vừa đủ cho môn Kiến trúc phần mềm:
 
 ```text
-OrderPaid -> PickupSlotReserved -> OrderPreparing -> OrderPlacedInSlot
--> OrderReady -> NotificationRequested -> OrderPickedUp
+- Microservices tách theo business capability
+- API Gateway làm điểm vào
+- RabbitMQ cho event-driven communication
+- Database riêng theo service trong bản deployment tách repo
+- Trade-off: giảm coupling nhưng phải chấp nhận eventual consistency và debug khó hơn
+- Không claim production-ready
 ```
-
-## Team Split
-
-| Role | Main Ownership |
-|---|---|
-| Platform and Eventing Lead | Repo structure, Docker Compose, RabbitMQ, PostgreSQL, shared event contracts, API Gateway, health checks, CI/CD |
-| Ordering and Slot Lead | Order Service, Slot Service, checkout flow, slot assignment, `OrderPaid -> PickupSlotReserved` event flow |
-| Store Operations and Inventory Lead | Catalog/Inventory Service, staff dashboard, status updates, inventory deduction, pickup verification |
-
-## Two-Week Plan
-
-Week 1:
-
-```text
-Set up project structure
-Create Docker Compose skeleton
-Start PostgreSQL and RabbitMQ
-Implement base FastAPI services
-Create catalog and order APIs
-Publish OrderPaid event
-Consume OrderPaid in Slot Service
-Publish PickupSlotReserved event
-Show assigned slot in staff board
-```
-
-Week 2:
-
-```text
-Add pickup token or QR code
-Implement Preparing, Ready, and PickedUp actions
-Add event logs and correlation IDs
-Add notification and analytics simulation
-Write integration tests for the main journey
-Prepare Swagger screenshots and demo evidence
-Finalize report sections and trade-off analysis
-```
-
-## Report Plan
-
-The report should follow the required course outline:
-
-1. Introduction
-2. System Requirements
-3. Architecture Selection
-4. Architecture Design
-5. Technical Design
-6. Implementation
-7. Evaluation
-8. Conclusion
-
-Important concepts to explain:
-
-```text
-Architectural characteristics
-Modularity
-Coupling and cohesion
-Domain partitioning
-Distributed system trade-offs
-Data consistency strategy
-Evolution from service-based architecture to fuller microservices
-```
-
-## Scope Control
-
-If time is tight, keep the system focused on the main order-to-pickup journey:
-
-```text
-Keep Order Service, Slot Service, and Store Operations Service.
-Merge Catalog and Inventory if needed.
-Simulate Notification and Analytics with logs.
-Keep payment as mock payment only.
-Use a generated pickup token instead of real scanner integration.
-```
-
-PeakPick should be presented as a practical course prototype, not a production-ready system. The strongest point of the project is showing how service boundaries and events help coordinate orders, slots, inventory, staff operations, notifications, and analytics during peak-hour pickup.
-
-## Server Deployment
-
-Production-style deployment uses the dedicated compose file:
-
-```bash
-PUBLIC_API_BASE_URL=http://SERVER_IP:8000 \
-CORS_ORIGINS=http://SERVER_IP:5173 \
-PEAKPICK_AUTH_SECRET=replace-with-a-long-random-secret \
-docker compose -f docker-compose.prod.yml up -d --build
-```
-
-For the `cop-fe` server, GitHub auto-sync is handled by `scripts/deploy.sh` plus the systemd timer templates in `deployment/`. The timer pulls `main` from GitHub and redeploys only when the commit changes.

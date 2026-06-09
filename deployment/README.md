@@ -1,42 +1,54 @@
-# PeakPick Server Deployment
+# PeakPick Deployment
 
-Production deployment uses a pull-based sync:
-
-```text
-GitHub main branch
--> systemd timer on the server
--> scripts/deploy.sh
--> docker compose -f docker-compose.prod.yml up -d --build
-```
-
-Only these ports are public by default:
+Thư mục này giữ ghi chú deploy cũ của repo tổng hợp. Bản đang chạy public hiện dùng repo riêng:
 
 ```text
-5173 frontend
-8000 API Gateway
+peakpick-deployment
 ```
 
-PostgreSQL, RabbitMQ, and internal FastAPI services stay inside Docker.
+Trong bản microservice hiện tại:
 
-Server environment file:
+```text
+GitHub repos tách riêng
+-> /opt/peakpick-split trên VPS
+-> docker compose trong peakpick-deployment
+-> Nginx public HTTPS
+-> API Gateway và Frontend bind localhost
+```
+
+Domain đang live:
+
+```text
+https://peakpick-103-90-225-235.sslip.io
+```
+
+## Cấu Hình Chính
+
+File env production trên server:
+
+```text
+/opt/peakpick-split/peakpick-deployment/.env.production
+```
+
+Các biến cần có:
 
 ```bash
-PUBLIC_API_BASE_URL=http://SERVER_IP:8000
-CORS_ORIGINS=http://SERVER_IP:5173
 PEAKPICK_AUTH_SECRET=replace-with-a-long-random-secret
+PUBLIC_DOMAIN=peakpick-103-90-225-235.sslip.io
+PUBLIC_API_BASE_URL=https://peakpick-103-90-225-235.sslip.io
+CORS_ORIGINS=https://peakpick-103-90-225-235.sslip.io
 ```
 
-On `cop-fe`, place that file at:
+## Chạy Lại Stack
 
-```text
-/opt/peakpick/.env.production
+```bash
+cd /opt/peakpick-split/peakpick-deployment
+docker compose --env-file .env.production up -d --build
 ```
 
-The deployment script expects 12 running containers: PostgreSQL, RabbitMQ,
-frontend, API Gateway, Identity, Catalog, Order, Slot, Store Operations,
-Inventory, Notification, and Analytics.
+Không bật Caddy trên server hiện tại vì Nginx đã dùng port `80` và `443`.
 
-Demo accounts seeded by `db/init.sql`:
+## Tài Khoản Demo
 
 ```text
 admin@peakpick.local / admin123
