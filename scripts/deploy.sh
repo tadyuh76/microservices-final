@@ -24,7 +24,7 @@ fi
 
 git reset --hard "$target_revision"
 
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d --build postgres rabbitmq
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d postgres rabbitmq
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" exec -T postgres \
   psql -U peakpick -d peakpick -f /docker-entrypoint-initdb.d/init.sql
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d --build --remove-orphans
