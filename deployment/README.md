@@ -19,7 +19,7 @@ GitHub repos tách riêng
 Domain đang live:
 
 ```text
-https://peakpick-103-90-225-235.sslip.io
+https://peakpick.tech
 ```
 
 ## Cấu Hình Chính
@@ -34,9 +34,9 @@ Các biến cần có:
 
 ```bash
 PEAKPICK_AUTH_SECRET=replace-with-a-long-random-secret
-PUBLIC_DOMAIN=peakpick-103-90-225-235.sslip.io
-PUBLIC_API_BASE_URL=https://peakpick-103-90-225-235.sslip.io
-CORS_ORIGINS=https://peakpick-103-90-225-235.sslip.io
+PUBLIC_DOMAIN=peakpick.tech,www.peakpick.tech
+PUBLIC_API_BASE_URL=https://peakpick.tech
+CORS_ORIGINS=https://peakpick.tech,https://www.peakpick.tech
 ```
 
 ## Chạy Lại Stack

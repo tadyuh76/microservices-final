@@ -5,7 +5,7 @@ PeakPick là hệ thống đặt hàng trước và nhận hàng theo ô pickup 
 Ứng dụng đang chạy tại:
 
 ```text
-https://peakpick-103-90-225-235.sslip.io
+https://peakpick.tech
 ```
 
 ## Ý tưởng
@@ -133,9 +133,9 @@ Khi deploy public:
 
 ```bash
 PEAKPICK_AUTH_SECRET=replace-with-long-secret
-PUBLIC_DOMAIN=peakpick-103-90-225-235.sslip.io
-PUBLIC_API_BASE_URL=https://peakpick-103-90-225-235.sslip.io
-CORS_ORIGINS=https://peakpick-103-90-225-235.sslip.io
+PUBLIC_DOMAIN=peakpick.tech,www.peakpick.tech
+PUBLIC_API_BASE_URL=https://peakpick.tech
+CORS_ORIGINS=https://peakpick.tech,https://www.peakpick.tech
 docker compose --env-file .env.production up -d --build
 ```
 
