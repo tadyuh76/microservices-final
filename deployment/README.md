@@ -1,57 +1,42 @@
 # PeakPick Deployment
 
-Thư mục này giữ ghi chú deploy cũ của repo tổng hợp. Bản đang chạy public hiện dùng repo riêng:
+Production deploy dùng cơ chế pull-based:
 
 ```text
-peakpick-deployment
+GitHub main branch
+-> systemd timer trên server
+-> scripts/deploy.sh
+-> docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-Trong bản microservice hiện tại:
+Repo deploy theo hướng service-based: một codebase, nhiều FastAPI module, một PostgreSQL database chung và RabbitMQ cho event flow.
 
-```text
-GitHub repos tách riêng
--> /opt/peakpick-split trên VPS
--> docker compose trong peakpick-deployment
--> Nginx public HTTPS
--> API Gateway và Frontend bind localhost
-```
+## Environment
 
-Domain đang live:
-
-```text
-https://peakpick.tech
-```
-
-## Cấu Hình Chính
-
-File env production trên server:
-
-```text
-/opt/peakpick-split/peakpick-deployment/.env.production
-```
-
-Các biến cần có:
+File `.env.production` trên server:
 
 ```bash
-PEAKPICK_AUTH_SECRET=replace-with-a-long-random-secret
-PUBLIC_DOMAIN=peakpick.tech,www.peakpick.tech
 PUBLIC_API_BASE_URL=https://peakpick.tech
 CORS_ORIGINS=https://peakpick.tech,https://www.peakpick.tech
+PEAKPICK_AUTH_SECRET=replace-with-a-long-random-secret
 ```
 
-## Chạy Lại Stack
+## Public Reverse Proxy
 
-```bash
-cd /opt/peakpick-split/peakpick-deployment
-docker compose --env-file .env.production up -d --build
-```
-
-Không bật Caddy trên server hiện tại vì Nginx đã dùng port `80` và `443`.
-
-## Tài Khoản Demo
+Docker Compose production bind app vào localhost:
 
 ```text
-admin@peakpick.local / admin123
-manager.ueh@peakpick.local / manager123
-manager.d1@peakpick.local / manager123
+127.0.0.1:5173 -> frontend
+127.0.0.1:8000 -> API Gateway
+```
+
+Nginx public HTTPS proxy:
+
+```text
+/health, /routes, /identity/*, /catalog/*, /orders/*, /slots/*,
+/store/*, /inventory/*, /notifications/*, /analytics/*, /system/*
+-> http://127.0.0.1:8000
+
+/*
+-> http://127.0.0.1:5173
 ```

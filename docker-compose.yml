@@ -17,7 +17,10 @@ services:
       retries: 10
 
   rabbitmq:
-    image: rabbitmq:3-management-alpine
+    image: rabbitmq:3.13-management-alpine
+    hostname: rabbitmq
+    environment:
+      RABBITMQ_ERLANG_COOKIE: peakpick-demo-cookie
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -26,70 +29,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-
-  api-gateway:
-    build: .
-    command: uvicorn services.api_gateway.main:app --host 0.0.0.0 --port 8000
-    environment:
-      SERVICE_NAME: api-gateway
-      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
-      EVENT_BUS: rabbitmq
-      PEAKPICK_AUTH_SECRET: ${PEAKPICK_AUTH_SECRET:-peakpick-demo-secret}
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
-      DATABASE_URL: postgresql://peakpick:peakpick@postgres:5432/peakpick
-      IDENTITY_SERVICE_URL: http://identity-service:8008
-      CATALOG_SERVICE_URL: http://catalog-service:8001
-      ORDER_SERVICE_URL: http://order-service:8002
-      SLOT_SERVICE_URL: http://slot-service:8003
-      STORE_OPS_SERVICE_URL: http://store-ops-service:8004
-      INVENTORY_SERVICE_URL: http://inventory-service:8005
-      NOTIFICATION_SERVICE_URL: http://notification-service:8006
-      ANALYTICS_SERVICE_URL: http://analytics-service:8007
-    ports:
-      - "8000:8000"
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-      identity-service:
-        condition: service_started
-      catalog-service:
-        condition: service_started
-      order-service:
-        condition: service_started
-      slot-service:
-        condition: service_started
-      store-ops-service:
-        condition: service_started
-      inventory-service:
-        condition: service_started
-      notification-service:
-        condition: service_started
-      analytics-service:
-        condition: service_started
-
-  frontend:
-    build:
-      context: ./frontend
-    environment:
-      VITE_API_BASE_URL: http://localhost:8000
-    ports:
-      - "5173:5173"
-    depends_on:
-      api-gateway:
-        condition: service_started
-
-  catalog-service:
-    build: .
-    command: uvicorn services.catalog_service.main:app --host 0.0.0.0 --port 8001
-    environment:
-      SERVICE_NAME: catalog-service
-    ports:
-      - "8001:8001"
-    depends_on:
-      postgres:
-        condition: service_healthy
 
   identity-service:
     build: .
@@ -100,6 +39,18 @@ services:
       DATABASE_URL: postgresql://peakpick:peakpick@postgres:5432/peakpick
     ports:
       - "8008:8008"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  catalog-service:
+    build: .
+    command: uvicorn services.catalog_service.main:app --host 0.0.0.0 --port 8001
+    environment:
+      SERVICE_NAME: catalog-service
+      DATABASE_URL: postgresql://peakpick:peakpick@postgres:5432/peakpick
+    ports:
+      - "8001:8001"
     depends_on:
       postgres:
         condition: service_healthy
@@ -199,6 +150,54 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+
+  api-gateway:
+    build: .
+    command: uvicorn services.api_gateway.main:app --host 0.0.0.0 --port 8000
+    environment:
+      SERVICE_NAME: api-gateway
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      PEAKPICK_AUTH_SECRET: ${PEAKPICK_AUTH_SECRET:-peakpick-demo-secret}
+      IDENTITY_SERVICE_URL: http://identity-service:8008
+      CATALOG_SERVICE_URL: http://catalog-service:8001
+      ORDER_SERVICE_URL: http://order-service:8002
+      SLOT_SERVICE_URL: http://slot-service:8003
+      STORE_OPS_SERVICE_URL: http://store-ops-service:8004
+      INVENTORY_SERVICE_URL: http://inventory-service:8005
+      NOTIFICATION_SERVICE_URL: http://notification-service:8006
+      ANALYTICS_SERVICE_URL: http://analytics-service:8007
+    ports:
+      - "8000:8000"
+    depends_on:
+      identity-service:
+        condition: service_started
+      catalog-service:
+        condition: service_started
+      order-service:
+        condition: service_started
+      slot-service:
+        condition: service_started
+      store-ops-service:
+        condition: service_started
+      inventory-service:
+        condition: service_started
+      notification-service:
+        condition: service_started
+      analytics-service:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: ${PUBLIC_API_BASE_URL:-http://localhost:8000}
+    environment:
+      VITE_API_BASE_URL: ${PUBLIC_API_BASE_URL:-http://localhost:8000}
+    ports:
+      - "5173:5173"
+    depends_on:
+      api-gateway:
+        condition: service_started
 
 volumes:
   postgres_data:

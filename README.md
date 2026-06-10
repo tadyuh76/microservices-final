@@ -1,53 +1,45 @@
 # PeakPick
 
-PeakPick là hệ thống đặt hàng trước và nhận hàng theo ô pickup cho cửa hàng tiện lợi trong giờ cao điểm. Dự án hiện được tổ chức theo **Microservices Architecture + Event-Driven Architecture**.
+PeakPick là prototype **service-based + event-driven** cho luồng đặt hàng trước và nhận hàng tại ô pickup trong cửa hàng tiện lợi.
 
-Ứng dụng đang chạy tại:
+Ứng dụng demo:
 
 ```text
 https://peakpick.tech
 ```
 
-## Ý tưởng
+## Ý Tưởng
 
-Thay vì khách phải xếp hàng, quét từng món, thanh toán rồi chờ xác nhận tại quầy, PeakPick đổi luồng thành:
+Trong giờ cao điểm, khách chỉ mua vài món nhỏ vẫn phải xếp hàng cùng toàn bộ khách tại quầy. PeakPick đổi luồng thành:
 
 ```text
-Đặt món trước -> Chọn khung giờ nhận -> Hệ thống gán ô pickup -> Nhân viên chuẩn bị -> Khách xác nhận mã nhận hàng
+Đặt món trước -> Chọn khung giờ nhận -> Thanh toán mock -> Hệ thống gán ô pickup -> Nhân viên chuẩn bị -> Khách xác nhận mã nhận hàng
 ```
 
 Điểm chính của bài là **pickup slot**: một ô nhận hàng vật lý hoặc logic được giữ cho một đơn đã thanh toán trong một khung giờ cụ thể.
 
 ## Kiến Trúc
 
-PeakPick dùng microservices vì các nghiệp vụ có ranh giới rõ:
+Project hiện dùng **service-based architecture** thay vì microservices tách repo. Lý do là scope của bài còn nhỏ, mỗi module nghiệp vụ chưa đủ lớn để tách thành một repo và database riêng.
 
-| Microservice | Trách nhiệm |
+Repo này giữ toàn bộ source trong một codebase, nhưng chia module theo business capability:
+
+| Module | Trách nhiệm |
 |---|---|
 | API Gateway | Cổng REST duy nhất cho frontend, kiểm tra token và phân quyền cơ bản |
-| Identity Service | Tài khoản demo, vai trò, token đăng nhập |
-| Catalog Service | Danh mục sản phẩm, giá, trạng thái bán |
-| Order Service | Giỏ hàng, checkout mock, trạng thái đơn hàng |
-| Slot Service | Khung giờ nhận, sức chứa, gán và giải phóng ô pickup |
-| Store Operations Service | Bảng xử lý của nhân viên, chuẩn bị đơn, xác nhận pickup |
-| Inventory Service | Giữ hàng, trừ tồn, phát hiện thiếu hàng |
-| Notification Service | Mô phỏng thông báo đơn sẵn sàng hoặc thiếu hàng |
-| Analytics Service | Đếm sự kiện, thống kê vận hành |
+| Identity | Tài khoản demo, vai trò, token đăng nhập |
+| Catalog | Danh mục sản phẩm, giá, trạng thái bán |
+| Order | Giỏ hàng, checkout mock, trạng thái đơn hàng |
+| Slot | Khung giờ nhận, sức chứa, gán và giải phóng ô pickup |
+| Store Operations | Bảng xử lý của nhân viên, chuẩn bị đơn, xác nhận pickup |
+| Inventory | Giữ hàng, trừ tồn, phát hiện thiếu hàng |
+| Notification | Mô phỏng thông báo đơn sẵn sàng hoặc thiếu hàng |
+| Analytics | Đếm sự kiện, thống kê vận hành |
 | Frontend | Giao diện SolidJS cho khách và nhân viên |
-
-Microservices trong bản tách repo có:
-
-```text
-- Repo riêng cho từng service
-- Dockerfile riêng
-- PostgreSQL database riêng cho từng service có dữ liệu
-- RabbitMQ dùng chung để truyền domain events
-- API Gateway làm điểm vào duy nhất cho client
-```
 
 ## Event-Driven Flow
 
-Luồng demo chính đi qua RabbitMQ:
+Các module backend giao tiếp workflow chính bằng RabbitMQ events:
 
 ```text
 OrderPaid
@@ -59,7 +51,7 @@ OrderPaid
 -> OrderPickedUp
 ```
 
-Các service không gọi trực tiếp tất cả service khác. Ví dụ, sau checkout, Order Service chỉ publish `OrderPaid`; Slot, Inventory, Store Operations và Analytics tự consume event phù hợp. Cách này giảm coupling và thể hiện rõ eventual consistency.
+Order module không gọi trực tiếp toàn bộ module khác sau checkout. Nó publish `OrderPaid`; Slot, Inventory, Store Operations, Notification và Analytics tự consume event phù hợp. Cách này giữ coupling thấp nhưng vẫn vừa sức hơn microservices đầy đủ.
 
 ## Tech Stack
 
@@ -67,40 +59,43 @@ Các service không gọi trực tiếp tất cả service khác. Ví dụ, sau 
 |---|---|
 | Frontend | SolidJS, Vite, TypeScript |
 | Backend | FastAPI, Python |
-| Database | PostgreSQL, database riêng theo service |
+| Database | PostgreSQL một database chung |
 | Message broker | RabbitMQ |
-| API docs | Swagger / OpenAPI tại `/docs` của từng service |
+| API docs | Swagger / OpenAPI tại `/docs` |
 | Container | Docker, Docker Compose |
-| Reverse proxy | Nginx trên VPS, Caddy là option local/free-domain |
 | Test | Pytest, frontend build |
 
-## Repo Tách Microservice
-
-Các repo chính đã được tách và push lên GitHub:
+## Cấu Trúc Repo
 
 ```text
-peakpick-api-gateway
-peakpick-identity-service
-peakpick-catalog-service
-peakpick-order-service
-peakpick-slot-service
-peakpick-store-ops-service
-peakpick-inventory-service
-peakpick-notification-service
-peakpick-analytics-service
-peakpick-frontend
-peakpick-deployment
+frontend/                  SolidJS UI
+services/api_gateway/       REST gateway
+services/identity_service/  identity/auth module
+services/catalog_service/   catalog module
+services/order_service/     order module
+services/slot_service/      pickup slot module
+services/store_ops_service/ staff operations module
+services/inventory_service/ inventory module
+services/notification_service/
+services/analytics_service/
+shared/                    event, auth, settings, logging utilities
+db/init.sql                PostgreSQL schema and seed data
+tests/                     unit and integration tests
 ```
 
-Repo `peakpick-deployment` là nơi chạy toàn bộ hệ thống bằng Docker Compose. Repo hiện tại giữ bản tổng hợp ban đầu, yêu cầu môn học và tài liệu dự án.
-
-## Chạy Local Từ Repo Tổng Hợp
+## Chạy Local
 
 ```bash
-uv venv
-uv pip install -r requirements.txt
-uv run pytest -q
-cd frontend && npm install && npm run build && cd ..
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+pytest -q
+
+cd frontend
+npm ci
+npm run build
+cd ..
+
 docker compose up --build
 ```
 
@@ -111,35 +106,14 @@ Các port local:
 | Frontend | http://localhost:5173 |
 | API Gateway | http://localhost:8000 |
 | RabbitMQ UI | http://localhost:15672 |
-| Identity Service | http://localhost:8008/docs |
-| Catalog Service | http://localhost:8001/docs |
-| Order Service | http://localhost:8002/docs |
-| Slot Service | http://localhost:8003/docs |
-| Store Operations Service | http://localhost:8004/docs |
-| Inventory Service | http://localhost:8005/docs |
-| Notification Service | http://localhost:8006/docs |
-| Analytics Service | http://localhost:8007/docs |
-
-## Chạy Bản Microservice Tách Repo
-
-Đặt các repo `peakpick-*` cùng cấp thư mục, sau đó:
-
-```bash
-cd peakpick-deployment
-docker compose up --build
-```
-
-Khi deploy public:
-
-```bash
-PEAKPICK_AUTH_SECRET=replace-with-long-secret
-PUBLIC_DOMAIN=peakpick.tech,www.peakpick.tech
-PUBLIC_API_BASE_URL=https://peakpick.tech
-CORS_ORIGINS=https://peakpick.tech,https://www.peakpick.tech
-docker compose --env-file .env.production up -d --build
-```
-
-Trên server hiện tại, Nginx reverse proxy public HTTPS vào `127.0.0.1:5173` và `127.0.0.1:8000`. Các service nội bộ chỉ bind localhost.
+| Identity | http://localhost:8008/docs |
+| Catalog | http://localhost:8001/docs |
+| Order | http://localhost:8002/docs |
+| Slot | http://localhost:8003/docs |
+| Store Operations | http://localhost:8004/docs |
+| Inventory | http://localhost:8005/docs |
+| Notification | http://localhost:8006/docs |
+| Analytics | http://localhost:8007/docs |
 
 ## Tài Khoản Demo
 
@@ -171,13 +145,13 @@ curl http://localhost:8000/store/board \
 
 ## Phạm Vi Báo Cáo
 
-Bài nên trình bày PeakPick là một prototype microservices vừa đủ cho môn Kiến trúc phần mềm:
+Bài nên trình bày PeakPick là prototype service-based có event-driven workflow:
 
 ```text
-- Microservices tách theo business capability
-- API Gateway làm điểm vào
-- RabbitMQ cho event-driven communication
-- Database riêng theo service trong bản deployment tách repo
-- Trade-off: giảm coupling nhưng phải chấp nhận eventual consistency và debug khó hơn
+- Chia module theo business capability
+- API Gateway làm điểm vào cho frontend
+- RabbitMQ cho domain events
+- PostgreSQL lưu dữ liệu demo trong một database chung
+- Shared utilities chỉ có một bản trong repo
 - Không claim production-ready
 ```

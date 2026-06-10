@@ -5,16 +5,6 @@ CREATE TABLE IF NOT EXISTS stores (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS identity_users (
-    username TEXT PRIMARY KEY,
-    password_hash TEXT NOT NULL,
-    role TEXT NOT NULL CHECK (role IN ('admin', 'store_manager', 'customer')),
-    store_id TEXT NOT NULL REFERENCES stores(store_id),
-    display_name TEXT NOT NULL,
-    active BOOLEAN NOT NULL DEFAULT true,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
 CREATE TABLE IF NOT EXISTS event_log (
     event_id UUID PRIMARY KEY,
     event_type TEXT NOT NULL,
@@ -27,9 +17,6 @@ CREATE TABLE IF NOT EXISTS event_log (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-ALTER TABLE IF EXISTS event_log
-    ADD COLUMN IF NOT EXISTS store_id TEXT NOT NULL DEFAULT 'store-ueh';
-
 CREATE INDEX IF NOT EXISTS idx_event_log_correlation_id
     ON event_log (correlation_id);
 
@@ -39,6 +26,29 @@ CREATE INDEX IF NOT EXISTS idx_event_log_event_type
 CREATE INDEX IF NOT EXISTS idx_event_log_store_event
     ON event_log (store_id, event_type);
 
+CREATE TABLE IF NOT EXISTS identity_users (
+    username TEXT PRIMARY KEY,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL CHECK (role IN ('admin', 'store_manager', 'customer')),
+    store_id TEXT NOT NULL REFERENCES stores(store_id),
+    display_name TEXT NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS products (
+    sku TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    category TEXT NOT NULL,
+    price INTEGER NOT NULL CHECK (price >= 0),
+    available BOOLEAN NOT NULL DEFAULT true,
+    prep_time_minutes INTEGER NOT NULL CHECK (prep_time_minutes >= 0),
+    display_order INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_products_category_order
+    ON products (category, display_order);
+
 CREATE TABLE IF NOT EXISTS carts (
     cart_id TEXT PRIMARY KEY,
     store_id TEXT NOT NULL REFERENCES stores(store_id),
@@ -46,9 +56,6 @@ CREATE TABLE IF NOT EXISTS carts (
     status TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
-ALTER TABLE IF EXISTS carts
-    ADD COLUMN IF NOT EXISTS store_id TEXT NOT NULL DEFAULT 'store-ueh';
 
 CREATE TABLE IF NOT EXISTS cart_items (
     cart_id TEXT NOT NULL REFERENCES carts(cart_id) ON DELETE CASCADE,
@@ -68,9 +75,6 @@ CREATE TABLE IF NOT EXISTS orders (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-ALTER TABLE IF EXISTS orders
-    ADD COLUMN IF NOT EXISTS store_id TEXT NOT NULL DEFAULT 'store-ueh';
-
 CREATE INDEX IF NOT EXISTS idx_orders_store_created
     ON orders (store_id, created_at DESC);
 
@@ -89,24 +93,12 @@ CREATE TABLE IF NOT EXISTS pickup_windows (
     PRIMARY KEY (store_id, pickup_window)
 );
 
-ALTER TABLE IF EXISTS pickup_windows
-    ADD COLUMN IF NOT EXISTS store_id TEXT NOT NULL DEFAULT 'store-ueh';
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_pickup_windows_store_window
-    ON pickup_windows (store_id, pickup_window);
-
 CREATE TABLE IF NOT EXISTS pickup_slots (
     store_id TEXT NOT NULL REFERENCES stores(store_id),
     slot_id TEXT NOT NULL,
     active BOOLEAN NOT NULL DEFAULT true,
     PRIMARY KEY (store_id, slot_id)
 );
-
-ALTER TABLE IF EXISTS pickup_slots
-    ADD COLUMN IF NOT EXISTS store_id TEXT NOT NULL DEFAULT 'store-ueh';
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_pickup_slots_store_slot
-    ON pickup_slots (store_id, slot_id);
 
 CREATE TABLE IF NOT EXISTS slot_reservations (
     order_id TEXT PRIMARY KEY,
@@ -119,9 +111,6 @@ CREATE TABLE IF NOT EXISTS slot_reservations (
     FOREIGN KEY (store_id, slot_id) REFERENCES pickup_slots(store_id, slot_id),
     FOREIGN KEY (store_id, pickup_window) REFERENCES pickup_windows(store_id, pickup_window)
 );
-
-ALTER TABLE IF EXISTS slot_reservations
-    ADD COLUMN IF NOT EXISTS store_id TEXT NOT NULL DEFAULT 'store-ueh';
 
 CREATE INDEX IF NOT EXISTS idx_slot_reservations_store_window_status
     ON slot_reservations (store_id, pickup_window, status);
@@ -136,9 +125,6 @@ CREATE TABLE IF NOT EXISTS slot_reservation_blocks (
     reason TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
-ALTER TABLE IF EXISTS slot_reservation_blocks
-    ADD COLUMN IF NOT EXISTS store_id TEXT NOT NULL DEFAULT 'store-ueh';
 
 INSERT INTO stores (store_id, name)
 VALUES
@@ -159,6 +145,21 @@ ON CONFLICT (username) DO UPDATE
         store_id = EXCLUDED.store_id,
         display_name = EXCLUDED.display_name,
         active = true;
+
+INSERT INTO products (sku, name, category, price, available, prep_time_minutes, display_order)
+VALUES
+    ('coffee', 'Iced Coffee', 'drinks', 18000, true, 2, 1),
+    ('water', 'Bottled Water', 'drinks', 8000, true, 1, 2),
+    ('tea', 'Peach Tea', 'drinks', 16000, true, 2, 3),
+    ('sandwich', 'Chicken Sandwich', 'food', 28000, true, 5, 1),
+    ('snack', 'Seaweed Snack', 'snacks', 12000, true, 1, 1)
+ON CONFLICT (sku) DO UPDATE
+    SET name = EXCLUDED.name,
+        category = EXCLUDED.category,
+        price = EXCLUDED.price,
+        available = EXCLUDED.available,
+        prep_time_minutes = EXCLUDED.prep_time_minutes,
+        display_order = EXCLUDED.display_order;
 
 INSERT INTO pickup_windows (store_id, pickup_window, capacity)
 SELECT store_id, pickup_window, 32
